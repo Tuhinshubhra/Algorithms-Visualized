@@ -1,0 +1,284 @@
+
+<html>
+	<title>Linear Search - Rectangle Color</title>
+	<style>
+		.cselector {
+			display: inline-block;
+			border-radius: 34px;
+			padding: 8px;
+			margin: 20px;
+			cursor: pointer;
+			font-weight: bold;
+			font-family: monospace;
+			box-shadow: 0px 0px 10px 0px var(--data-color);
+		}
+		.cselector:hover{
+			background: var(--data-color);
+			color: #000 !important;
+		}
+		.gb {
+			display: inline-block;
+			border-radius: 34px;
+			padding: 6px 10px;
+			cursor: pointer;
+			font-size: 15px;
+			color: black;
+			font-weight: bold;
+			border: solid 3px white;
+			color: white;
+			font-family: monospace;
+			box-shadow: 0px 0px 10px 0px white;
+		}
+		
+		.gb:hover{
+			background: white;
+			color: black;
+		}
+
+		h1, h3, h2 {
+			font-family: monospace;
+			color: #fff;
+		}
+	</style>
+	<body style="background: #000;">
+		<center style="margin-top: 30px">
+			<h1 style="color: aqua;">Searching for Colors using Linear Search</h1>
+			<h2 style="color: lightblue; letter-spacing: 3px">Click on a color to search for it</h2>
+			<canvas id="myCanvas" height="500" width="1000"></canvas>
+			<br><br><br><br>
+			<div id="color-sel-parent"></div>
+			<br>
+			<div class="gb" id="gb">Generate New Rectangles</div>
+		</center>
+	</body>
+    <script>      
+		var g_myCanvas               = document.getElementById("myCanvas");
+        var g_context                = g_myCanvas.getContext('2d');
+		var g_color_sel_div          = document.getElementById('color-sel-parent');
+		var g_color_selection_elems  = '';
+		g_context.lineWidth          = 3;
+        var g_FPS                    = 30;
+        var g_timeDuration           = 1000/g_FPS;
+		var g_rectWidth              = 50; // width of a rectangle
+		var g_numRect                = 10; // number of rectangles we want to generate
+		var g_base_x                 = parseInt((g_myCanvas.width - (g_numRect * g_rectWidth))/2); // Starting X Co-ordinate
+		var g_rectangleObjects       = []; // will hold all the rectangles
+		var g_searching              = false;
+		var g_generateRectFlag       = false; // enabling this flag triggers a function that creates new rectangles and resets counter and actions
+		var g_isDone                 = false; // is sorting complete
+		var g_searchFor              = 'N/A';
+		var g_isFound                = false;
+		var g_counter                = 0;
+		
+		function f_generateBrightColors() {
+				// generates a bright random color
+                var l_colorLetters = '69DEF'.split('');
+                var l_hexCode = '#';
+                for (var i = 0; i < 6; i++ ) {
+                    l_hexCode += l_colorLetters[parseInt(Math.random() * l_colorLetters.length)];
+                }
+                return l_hexCode;
+        }
+		
+		function f_generateRectangles(){
+			// Generate Rectangles and color selection elements
+			
+			for (var i=0; i<g_numRect; i++){
+				var l_temp_color = f_generateBrightColors();
+				g_rectangleObjects.push(
+					new C_Rectangle(
+						g_base_x + g_rectangleObjects.length * g_rectWidth, // X Co-ordinate
+						g_myCanvas.height - 50,                             // Y Co-Ordinate 
+						Math.floor((Math.random() * 300) + 10),             // random Height between 100-200
+						g_rectWidth,                                        // width
+						2.5,                                                // speed
+						l_temp_color                                        // random color
+					)
+				);
+				
+				if (i%2) {
+					// generate buttons only when i is odd cuz we don't want too many buttons
+					g_color_selection_elems += '<div id="sel" class="cselector" style="border: solid 2px ' + l_temp_color + '; color: ' + l_temp_color + '; --data-color:' + l_temp_color + ';" data-color="'+ l_temp_color +'">'+ l_temp_color +'</div>'
+				}
+				
+			}
+			g_color_selection_elems += '<div id="sel" class="cselector" style="border: solid 2px #FFFFFF; color: #FFFFFF; --data-color:#FFFFFF;" data-color="#FFFFFF">#FFFFFF</div>'; // add a white color button to check for failed.
+			g_color_sel_div.innerHTML = g_color_selection_elems;
+
+		}
+		
+        function C_Rectangle(l_x, l_y, l_height, l_width, l_speed, l_color){
+            this.x                = l_x;
+            this.y                = l_y;
+            this.height           = l_height;
+            this.width            = l_width;
+			this.speed            = l_speed;
+            this.color            = l_color;
+			this.perppendicular   = Math.sqrt((this.width/2 * this.width/2) - (this.width/4 * this.width/4)) // for the selector triangle
+			this.isSearching      = false; // when enabled the sorting will be paused
+			this.isResult         = false;
+			this.searchWidth     = 0;
+            
+            this.m_draw = function m_draw(l_context, l_isDone= false){
+				
+				// draw rect and outline it
+				l_context.fillStyle = this.color;
+				l_context.strokeStyle = this.color;
+				l_context.strokeRect(this.x, this.y, this.width, this.height * -1);
+				
+				// searching animaation
+				if (this.isSearching == true){
+					l_context.fillRect(this.x, this.y, this.searchWidth, this.height * -1);
+					
+					if (this.searchWidth < this.width){
+						this.searchWidth+= 2.5;
+					} else {
+						this.isSearching = 'done';
+					}
+				} else if (this.isResult){
+					l_context.fillRect(this.x, this.y, this.width, this.height * -1);
+				}
+				
+				// draw selector 
+				if (this.isSearching == true || this.isResult){
+					l_context.fillStyle = (this.isSearching == true) ? "aqua" : this.color;
+					l_context.strokeStyle = "#000"
+					l_context.beginPath();
+					l_context.moveTo(this.x + this.width/4, this.y+this.perppendicular+6);
+					l_context.lineTo(this.x+this.width/2+this.width/4, this.y+this.perppendicular+6);
+					l_context.lineTo(this.width/2+this.x, this.y+6);
+					l_context.lineTo(this.x + this.width/4, this.y + this.perppendicular+6);
+					l_context.fill();
+				}				
+            }
+        }
+		function f_drawObjects(){
+			for (var i=0; i<g_numRect; i++){
+				g_rectangleObjects[i].m_draw(g_context, g_isDone);
+			}
+			
+			// white separator
+			g_context.beginPath();
+			g_context.moveTo(0, g_myCanvas.height - 50);
+			g_context.strokeStyle = "white";
+			g_context.lineTo(g_myCanvas.width, g_myCanvas.height - 50);
+			g_context.stroke();
+		}
+        
+		function f_checkForRectangleReset(){
+			if (g_generateRectFlag == true){
+				g_color_selection_elems = '';
+				g_rectangleObjects = []; // empty the array
+				f_generateRectangles();  // fill in the array with new rects
+				g_generateRectFlag = false; // set flag to false
+				g_searching = false;
+				g_searchFor = 'N/A'; // reset search val
+				g_isDone = false; // reset action
+				g_counter = 0;
+			}
+		}
+        
+        function f_clearCanvas(){
+			// fill canvas
+			g_context.fillStyle = "#000000"
+            g_context.fillRect(0,0,g_myCanvas.width,g_myCanvas.height);
+			
+			// write "Height"
+			g_context.fillStyle = "white";
+			g_context.font = "20px monospace";
+			g_context.fillText("Searching For: ", 0, g_myCanvas.height - 20)
+			g_context.fillStyle = (g_searchFor == 'N/A') ? 'white' : g_searchFor;
+			g_context.fillText(g_searchFor, 160, g_myCanvas.height - 20)
+			
+			// write current action status
+			if (g_isDone){
+				g_context.fillStyle = (g_isFound) ? g_searchFor : 'red';
+				g_context.fillRect(g_myCanvas.width - 200, g_myCanvas.height -37, 131, 20);
+				g_context.fillStyle = "black";
+				g_context.font = "20px monospace";
+				g_context.fillText((g_isFound) ? "   FOUND   " : "   FAILED  ", g_myCanvas.width - 200, g_myCanvas.height - 20)
+			}
+			else if (g_searching){
+				g_context.fillStyle = "aqua";
+				g_context.font = "20px monospace";
+				g_context.fillText("SEARCHING: " + g_counter/g_numRect*100 + "%", g_myCanvas.width - 200, g_myCanvas.height - 20)
+			} else {
+				g_context.fillStyle = "white";
+				g_context.font = "20px monospace";
+				g_context.fillText("[   IDLE   ]", g_myCanvas.width - 200, g_myCanvas.height - 20)
+			}
+        }
+		
+		function f_searchRectangle(){
+			if (!g_isDone && g_searchFor != 'N/A'){
+				// is not done
+				for (var i=0; i<g_numRect; i++){
+					// check if scanning animation is going on in any of the rectangles, if so stop exec
+					if (g_rectangleObjects[i].isSearching == true) return; 
+				}
+				
+				// main function begins here
+				// first do the scanning animation
+				if (g_rectangleObjects[g_counter].isSearching == 'done'){
+					if (g_rectangleObjects[g_counter].color == g_searchFor){
+						g_isDone = g_isFound = true;
+						g_rectangleObjects[g_counter].isResult = true;
+						g_color_sel_div.innerHTML = g_color_selection_elems;
+						return;
+					}
+					
+					if (g_counter < g_numRect -1){
+						g_counter++;
+					} else {
+						g_isDone = true;
+						g_isFound = false;
+						g_color_sel_div.innerHTML = g_color_selection_elems;
+					}
+					
+				} else {
+					g_rectangleObjects[g_counter].isSearching = true;
+					g_searching = true
+				}
+				
+				
+			}
+		}
+        
+        function f_gameLoop(){
+			f_checkForRectangleReset();
+			f_searchRectangle();
+			//f_moveObject();
+            f_clearCanvas();
+            f_drawObjects();
+        }
+        
+		
+		function f_clickEventHandler(l_event){
+			//console.log(l_event.target.getAttribute('data-color'));
+			if (l_event.target.id == 'gb'){
+				g_generateRectFlag = true;
+			} else if (l_event.target.id == 'sel' && (g_isDone || g_searchFor == 'N/A')){
+				g_searchFor = l_event.target.getAttribute('data-color');
+				g_counter = 0;
+				g_isDone = false;
+				g_isFound = false;
+				l_event.target.style.background = g_searchFor;
+				l_event.target.style.color = "black";
+				for (var i=0; i<g_numRect; i++){
+					// reset rect vals
+					g_rectangleObjects[i].isSearching = false;
+					g_rectangleObjects[i].isResult = false;
+					g_rectangleObjects[i].searchWidth = 0;
+				}
+			}
+		}
+		
+		document.addEventListener('click', f_clickEventHandler);
+		
+		// Begin main
+        f_generateRectangles();
+        setInterval(f_gameLoop, g_timeDuration);
+    
+    </script>
+
+</html>

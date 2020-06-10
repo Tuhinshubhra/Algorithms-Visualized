@@ -1,0 +1,346 @@
+<html>
+	<title>Binary Search</title>
+	<style>
+		#myCanvas {
+			border: solid 6px #000;
+			border-radius: 22px;
+			box-shadow: 0px 0px 20px 1px #00000087;
+			margin-bottom: 30px;
+		}
+		body{
+			font-family: monospace;
+		}
+		#searchval {
+			margin: 5px;
+			border: solid 3px #000;
+			font-size: 20px;
+			padding: 5px;
+			text-align: center;
+			border-radius: 6px;
+			color: #000;
+			font-weight: bold;
+		}
+		
+		#search {
+			margin: 5px;
+			padding: 5px 29px;
+			background: #000;
+			font-size: 20px;
+			letter-spacing: 2px;
+			color: white;
+			border: solid 3px #000;
+			border-radius: 5px;
+			text-transform: uppercase;
+			cursor: pointer;
+		}
+		
+		#search:hover, #searchval:focus {
+			box-shadow: 0px 0px 15px 1px #0000007a;
+		}
+	</style>
+	<center>
+		<h1>Binary Search</h1>
+		<br><br>
+		<canvas id="myCanvas" width="1000" height="500"></canvas>
+		<br><br>
+		<input type="text" id="searchval" placeholder="Enter Value To Search"><button id="search" onclick="f_setVal()">Search</button>
+	</center>
+	<script>
+		var g_canvas            = document.getElementById('myCanvas');
+		var g_searchval         = document.getElementById('searchval');
+		var g_context           = g_canvas.getContext('2d');
+		var g_rectangles        = [];
+		var g_pointer           = new c_pointer();
+		var g_rectWidth         = 50;
+		var g_initFlag          = false;
+		var g_isSorted          = false;
+		var g_isDone            = false;
+		var g_numRectangles     = 10;
+		var g_baseX             = parseInt((g_canvas.width - (g_numRectangles * g_rectWidth))/2); // Starting X Co-ordinate
+		var g_FPS               = 30;
+		var g_timeInterval      = 1000/g_FPS;
+		var g_tempMin           = undefined;
+		var g_tempArr           = 0;
+		var g_counter           = 0;
+		var g_searchFor         = false;
+		var g_found             = false;
+		var g_mid               = undefined;
+		var g_min               = 0;
+		var g_max               = g_numRectangles -1;
+		var g_xofmid            = 0;
+		var g_frames            = 0;
+		var g_timePassed        = 0;
+		
+		function f_clearCanvas(){
+			g_context.beginPath();
+			g_context.lineWidth = 5;
+			
+			g_context.fillStyle = '#ffffff'
+			g_context.fillRect(0, 0, g_canvas.width, g_canvas.height);
+			
+			// bottom rect
+			g_context.fillStyle = '#000000';
+			g_context.fillRect(0, g_canvas.height, g_canvas.width, -50);
+			
+			// write "Height"
+			g_context.fillStyle = "white";
+			g_context.font = "20px monospace";
+			g_context.fillText("Height: ", 25, g_canvas.height - 20)
+			
+			// write "Mid"
+			g_context.fillStyle = "#000000";
+			l_mid = (g_isSorted) ? g_mid : 'N/A';
+			g_context.fillText("Mid       : " + l_mid, g_canvas.width - 200, 50)
+			g_context.fillText("Min       : " + g_min, g_canvas.width - 200, 70)
+			g_context.fillText("Max       : " + g_max, g_canvas.width - 200, 90)
+			// write search For
+			l_sf = (g_searchFor) ? g_searchFor : 'N/A'
+			g_context.fillText("Search For: " + l_sf, g_canvas.width - 200, 110)
+			
+			if (g_isDone){
+				g_context.fillStyle = (g_found) ? "lime" : "red";
+				g_context.fillRect(g_canvas.width - 200, g_canvas.height -37, 131, 20);
+				g_context.fillStyle = "black";
+				g_context.font = "20px monospace";
+				g_context.fillText((g_found) ? "   FOUND    " : "  NOT FOUND", g_canvas.width - 200, g_canvas.height - 20)
+			}
+			else if (g_initFlag && g_isSorted){
+				g_context.fillStyle = "blue";
+				g_context.font = "20px monospace";
+				g_context.fillText("[  SEARCH  ]", g_canvas.width - 200, g_canvas.height - 20)
+			} else if (g_initFlag && !g_isSorted){
+				g_context.fillStyle = "greenyellow";
+				g_context.font = "20px monospace";
+				g_context.fillText("[   SORT   ]", g_canvas.width - 200, g_canvas.height - 20)
+			} else {
+				g_context.fillStyle = "white";
+				g_context.font = "20px monospace";
+				g_context.fillText("[   IDLE   ]", g_canvas.width - 200, g_canvas.height - 20)
+			}
+		}
+		
+		function f_frameCounter(){
+			if (g_frames >= g_FPS){
+				g_timePassed++;
+				g_frames = 0;
+			}
+		}
+		
+		function f_createRectangles(){
+			for (var i=0; i<g_numRectangles; i++){
+				g_rectangles.push(
+					new c_rectangle(
+						g_baseX + g_rectangles.length * g_rectWidth,        // X Co-ordinate
+						g_canvas.height - 50,                               // Y Co-Ordinate 
+						Math.floor((Math.random() * 300) + 50),             // random Height between 100-300
+						g_rectWidth,                                        // width
+						5,                                                  // speed
+						'#2df0be'                                           // init with black
+					)
+				)
+			}
+		}
+		
+		function c_pointer(){
+			this.x         = 5;
+			this.y         = 50;
+			this.width     = 50;
+			this.height    = Math.sqrt((this.width*this.width) - (this.width/2 * this.width/2));
+			this.posx      = 30;
+			this.isMoving  = false;
+			
+			this.m_draw = (l_context) => {
+				if (g_isSorted && !g_isDone){
+					l_context.fillStyle = 'blue';
+					l_context.beginPath();
+					l_context.moveTo(this.x, this.y);
+					l_context.lineTo(this.x + this.width, this.y);
+					l_context.lineTo(this.x + this.width/2, this.y + this.height);
+					l_context.lineTo(this.x, this.y);
+					l_context.closePath()
+					l_context.fill();
+				}
+			}
+			
+			this.m_move = () => {
+				if (this.posx != this.x){
+					this.isMoving = true;
+					if (this.posx > this.x){
+						this.x+=2.5;
+					} else {
+						this.x-=2.5;
+					}
+				} else {
+					this.isMoving = false;
+				}
+			}
+		}
+		
+		function c_rectangle(l_x, l_y, l_height, l_width, l_speed, l_color){
+			this.x         = l_x;
+			this.y         = l_y;
+			this.height    = l_height;
+			this.width     = l_width;
+			this.color     = l_color;
+			this.speed     = l_speed;
+			this.isMoving  = false;
+			this.isMid     = false;
+			this.isResult  = false;
+			
+			this.m_draw = function m_draw(l_context, l_index){
+				l_context.fillStyle = (this.isResult) ? 'greenyellow' : (this.isMid) ? 'blue' : (l_index >= g_min && l_index <= g_max) ? this.color : '#eeeeee';
+				l_context.strokeStyle = (this.isMoving) ? this.color : 'white';
+				l_context.fillRect(this.x, this.y, this.width, this.height * -1);
+				l_context.strokeRect(this.x, this.y, this.width, this.height * -1);
+				
+				// print height
+				l_context.font = "20px monospace";
+				l_context.fillText(this.height, this.x+5, this.y + 30);
+			}
+			
+			this.m_move = function m_move(l_position, l_basex){
+                if (this.x > l_basex + l_position*this.width){
+					this.x -= this.speed;
+					this.isMoving = true;
+				} else if (this.x < l_basex + l_position*this.width){
+					this.x += this.speed;
+					this.isMoving = true;
+				} else {
+					// assuming this.x is in it's position
+					this.isMoving = false;
+				}
+			}
+		}
+		
+		function f_search(){
+			if (g_initFlag && g_isSorted && !g_pointer.isMoving && g_frames%2 == 0	){
+				// calculate mid
+				if (g_min > g_max) {
+					// not found case
+					g_isDone = true;
+					g_rectangles[g_mid].isMid = false;
+					g_found  = false;
+					return;
+				}
+				
+				if (g_mid == undefined){
+					// init
+					g_mid = Math.floor((g_max + g_min)/2);
+					g_rectangles[g_mid].isMid = true;
+					g_xofmid = g_rectangles[g_mid].x;
+					// g_pointer.x = g_xofmid;
+					g_pointer.posx = g_xofmid;
+					console.log('init: ' + g_mid);
+				} else {
+					if (g_rectangles[g_mid].height == g_searchFor){
+						g_rectangles[g_mid].isResult = true;
+						g_found  = true;
+						g_isDone = true;
+						return;
+					} else if (g_rectangles[g_mid].height < g_searchFor){
+						g_min = g_mid + 1;
+						g_rectangles[g_mid].isMid = false;
+						console.log('great')
+					} else {
+						g_max = g_mid -1;
+						g_rectangles[g_mid].isMid = false;
+						console.log('less')
+					}
+					g_mid = Math.floor((g_max + g_min)/2);
+					g_xofmid = g_rectangles[g_mid].x;
+					g_rectangles[g_mid].isMid = true;
+					g_pointer.posx = g_xofmid;
+					console.log('new: ' + g_mid);
+					return;
+				}
+				
+			}
+		}
+		
+		function f_sortRects(){
+			if (g_initFlag && !g_isSorted){
+				var l_issomethingMoving = false;
+				for (var i=0; i<g_numRectangles; i++){
+					if (g_rectangles[i].isMoving){
+						l_issomethingMoving = true;
+						break;
+					}
+				}
+				if (l_issomethingMoving) return;
+				if (g_counter < g_numRectangles){
+					g_tempMin = g_counter;
+					for (var j = g_counter+1; j < g_numRectangles; j++){
+						if (g_rectangles[j].height < g_rectangles[g_tempMin].height){
+							g_tempMin = j;
+						}
+					}
+					if (g_tempMin != g_counter){
+						// swap
+						g_tempArr = g_rectangles[g_counter];
+						g_rectangles[g_counter] = g_rectangles[g_tempMin];
+						g_rectangles[g_tempMin] = g_tempArr;
+					}
+					g_counter++;
+				} else if (g_counter == g_numRectangles){
+					g_isSorted = true;
+				}
+			}
+		}
+		
+		function f_moveObjects(){
+			for (var i=0; i<g_numRectangles; i++){
+				g_rectangles[i].m_move(i, g_baseX);
+			}
+			
+			g_pointer.m_move();
+		}
+		
+		function f_drawObjects(){
+			// pointer
+			g_pointer.m_draw(g_context);
+			
+			// rects
+			for (var i=0; i<g_numRectangles; i++){
+				g_rectangles[i].m_draw(g_context, i);
+			}
+			
+			// black separator
+			g_context.beginPath();
+			g_context.lineWidth = 10;
+			g_context.moveTo(0, g_canvas.height - 50);
+			g_context.strokeStyle = "black";
+			g_context.lineTo(g_canvas.width, g_canvas.height - 50);
+			g_context.stroke();			
+		}
+		
+		function f_gameLoop(){
+			f_frameCounter()
+			f_sortRects();
+			f_search();
+			f_moveObjects();
+			f_clearCanvas();
+			f_drawObjects();
+		}
+		
+		// click function
+		function f_setVal(){
+			var newval = parseInt(g_searchval.value);
+			if (!newval || newval == undefined){
+				alert('Invalid Input');
+			} else {
+				if (g_initFlag && !g_isDone){
+					alert('Please wait for the current search to end!')
+				} else {
+					g_initFlag = true;
+					g_searchFor = newval;
+					g_isDone = g_isSorted = false;
+				}
+			}
+		}
+		
+		// start
+		f_createRectangles();
+		var g_gameLoop = setInterval(f_gameLoop, g_timeInterval);
+		
+	</script>
+</html>

@@ -1,0 +1,223 @@
+
+<html>
+	<body style="background: #000;">
+		<center style="margin-top: 30px">
+			<h1 style="font-family: monospace; color: #fff"> Press <font color="aqua">A</font> to arrange in ascending order || <font color="red">D</font> for descending order</h1>
+			<h1 style="font-family: monospace; color: #fff"> You can also press <font color="yellow">G</font> to get a new set of rectangles!</h1>
+			<br>
+			<canvas id="myCanvas" height="500" width="1000"></canvas>
+			<br>
+		</center>
+	</body>
+    <script>
+        
+		var g_myCanvas          = document.getElementById("myCanvas");
+        var g_context           = g_myCanvas.getContext('2d');
+		g_context.lineWidth     = 3;
+        var g_FPS               = 60;
+        var g_timeDuration      = 1000/g_FPS;
+		var g_rectWidth         = 50; // width of a rectangle
+		var g_numRect           = 10; // number of rectangles we want to generate
+		var g_base_x            = parseInt((g_myCanvas.width - (g_numRect * g_rectWidth))/2); // Starting X Co-ordinate
+		var g_parent_iterator   = 0; // parent counter
+		var g_rectangleObjects  = []; // will hold all the rectangles
+		var g_ascendingSort     = false; // ascending sort flag
+		var g_decendingSort     = false; // descending sort flag
+		var g_generateRectFlag  = false; // enabling this flag triggers a function that creates new rectangles and resets counter and actions
+		var g_isDone            = false; // is sorting complete
+		
+		function f_generateBrightColors() {
+				// generates a bright random color
+                var letters = '69DEF'.split('');
+                var color = '#';
+                for (var i = 0; i < 6; i++ ) {
+                    color += letters[Math.floor(Math.random() * letters.length)];
+                }
+                return color;
+        }
+		
+		function f_generateRectangles(){
+			// Generate Rectangles
+			for (var i=0; i<g_numRect; i++){
+				g_rectangleObjects.push(
+					new C_Rectangle(
+						g_base_x + g_rectangleObjects.length * g_rectWidth, // X Co-ordinate
+						g_myCanvas.height - 50,                             // Y Co-Ordinate 
+						Math.floor((Math.random() * 300) + 10),             // random Height between 100-200
+						g_rectWidth,                                        // width
+						2.5,                                                // speed
+						f_generateBrightColors()                            // random color
+					)
+				)
+			}
+		}
+		
+        function C_Rectangle(l_x, l_y, l_height, l_width, l_speed, l_color){
+            this.x        = l_x;
+            this.y        = l_y;
+            this.height   = l_height;
+            this.width    = l_width;
+			this.speed    = l_speed;
+            this.color    = l_color;
+			this.isMoving = false; // when enabled the sorting will be paused
+            
+            this.m_draw = function m_draw(l_context, l_isDone= false){
+				// draw rect and outline it
+                
+				(this.isMoving || l_isDone) ? l_context.fillStyle = this.color : l_context.fillStyle = 'black';
+				(this.isMoving || l_isDone) ? l_context.strokeStyle = "black" : l_context.strokeStyle = this.color; //l_context.strokeStyle = "#000000"
+                l_context.fillRect(this.x, this.y, this.width, this.height * -1);
+				l_context.strokeRect(this.x, this.y, this.width, this.height * -1);
+				// write height on canvas
+				l_context.fillStyle = this.color;
+				l_context.font = "20px monospace";
+				l_context.fillText(this.height, this.x+5, this.y + 30);
+            }
+            
+            this.m_move = function m_move(l_position, l_basex){
+                if (this.x > l_basex + l_position*this.width){
+					this.x -= this.speed;
+					this.isMoving = true;
+				} else if (this.x < l_basex + l_position*this.width){
+					this.x += this.speed;
+					this.isMoving = true;
+				} else {
+					// assuming this.x is in it's position
+					this.isMoving = false;
+				}
+			}
+        }
+        
+        function f_moveObject(){
+           for (var i=0; i<g_numRect; i++){
+				g_rectangleObjects[i].m_move(i, g_base_x);
+			} 
+        }
+		
+		function f_drawObjects(){
+			for (var i=0; i<g_numRect; i++){
+				g_rectangleObjects[i].m_draw(g_context, g_isDone);
+			}
+			
+			// white separator
+			g_context.moveTo(0, g_myCanvas.height - 50);
+			g_context.strokeStyle = "white";
+			g_context.lineTo(g_myCanvas.width, g_myCanvas.height - 50);
+			g_context.stroke();
+		}
+		
+		function f_sortRectangles(){
+			// first check if any rectangle is moving... if so we wait
+			var l_isSomethingMoving = false;
+			for (var i=0; i<g_numRect; i++){
+				if (g_rectangleObjects[i].isMoving) {
+					l_isSomethingMoving = true;
+					break;
+				}
+			}
+			
+			if (l_isSomethingMoving) return; // end function if something is moving
+			
+			// now that we know nothing is moving let's check and shift objects
+			if (g_parent_iterator < g_numRect && (g_ascendingSort || g_decendingSort)){
+				let min = g_parent_iterator;
+				for (let j = g_parent_iterator + 1; j < g_numRect; j++) {
+					if (g_ascendingSort){
+						if (g_rectangleObjects[min].height > g_rectangleObjects[j].height) {
+							min = j;
+						}
+					} else if (g_decendingSort){
+						if (g_rectangleObjects[min].height < g_rectangleObjects[j].height) {
+							min = j;
+						}
+					} 
+				}
+				if (min !== g_parent_iterator) {
+					let tmp = g_rectangleObjects[g_parent_iterator];
+					g_rectangleObjects[g_parent_iterator] = g_rectangleObjects[min];
+					g_rectangleObjects[min] = tmp;
+				}
+				g_parent_iterator ++				
+			} else if (g_parent_iterator == g_numRect){
+				g_isDone = true;
+				g_ascendingSort = g_decendingSort = false;
+			}
+		}
+        
+		function f_checkForRectangleReset(){
+			if (g_generateRectFlag  == true){
+				g_rectangleObjects = []; // empty the array
+				f_generateRectangles();  // fill in the array with new rects
+				g_generateRectFlag = false; // set flag to false
+				g_parent_iterator = g_child_iterator = 0; // reset counters
+				g_ascendingSort = g_decendingSort = g_isDone = false; // reset action
+			}
+		}
+        
+        function f_clearCanvas(){
+			// fill canvas
+			g_context.fillStyle = "#000000"
+            g_context.fillRect(0,0,g_myCanvas.width,g_myCanvas.height);
+			
+			// write "Height"
+			g_context.fillStyle = "white";
+			g_context.font = "20px monospace";
+			g_context.fillText("Height: ", 25, g_myCanvas.height - 20)
+			
+			// write current action status
+			if (g_isDone){
+				g_context.fillStyle = "lime";
+				g_context.fillRect(g_myCanvas.width - 200, g_myCanvas.height -37, 131, 20);
+				g_context.fillStyle = "black";
+				g_context.font = "20px monospace";
+				g_context.fillText("    DONE    ", g_myCanvas.width - 200, g_myCanvas.height - 20)
+			}
+			else if (g_ascendingSort){
+				g_context.fillStyle = "aqua";
+				g_context.font = "20px monospace";
+				g_context.fillText("[   ASCN   ]", g_myCanvas.width - 200, g_myCanvas.height - 20)
+			} else if (g_decendingSort){
+				g_context.fillStyle = "red";
+				g_context.font = "20px monospace";
+				g_context.fillText("[   DESC   ]", g_myCanvas.width - 200, g_myCanvas.height - 20)
+			} else {
+				g_context.fillStyle = "white";
+				g_context.font = "20px monospace";
+				g_context.fillText("[   IDLE   ]", g_myCanvas.width - 200, g_myCanvas.height - 20)
+			}
+        }
+        
+        function f_gameLoop(){
+			f_checkForRectangleReset();
+			f_sortRectangles();
+			f_moveObject();
+            f_clearCanvas();
+            f_drawObjects();
+        }
+        
+        function f_keydownEventHandler(l_event){
+            if (l_event.key.toLowerCase() == "a"){
+                g_ascendingSort = true;
+                g_decendingSort = false;
+				g_isDone = false;
+				g_parent_iterator = g_child_iterator = 0; // reset counters
+            } else if (l_event.key.toLowerCase() == "d"){
+                g_ascendingSort = false;
+				g_isDone = false;
+                g_decendingSort = true;
+				g_parent_iterator = g_child_iterator = 0; // reset counters
+			} else if (l_event.key.toLowerCase() == 'g'){
+				g_generateRectFlag = true;
+			}
+            
+        }
+        
+        document.addEventListener('keydown', f_keydownEventHandler);
+		
+		// Begin main
+        f_generateRectangles();
+        setInterval(f_gameLoop, g_timeDuration);
+    
+    </script>
+
+</html>
